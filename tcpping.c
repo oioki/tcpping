@@ -190,7 +190,6 @@ int main(int argc, char * argv[])
     {
         diffAvg  = diffSum/cnt_successful;
         diffMdev = sqrt( diffSum2/cnt_successful - diffAvg*diffAvg );
-        printf("here\n");
         printf ("rtt min/avg/max/mdev = %0.3lf/%0.3lf/%0.3lf/%0.3lf ms\n", diffMin/1000.,diffAvg/1000.,diffMax/1000.,diffMdev/1000.);
     }
 
