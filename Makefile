@@ -2,7 +2,7 @@ all: tcpping
 
 
 tcpping: tcpping.o
-	cc tcpping.o -o tcpping
+	cc -lm tcpping.o -o tcpping
 
 tcpping.o: tcpping.c
 	cc -c tcpping.c
@@ -10,7 +10,7 @@ tcpping.o: tcpping.c
 
 debug:
 	cc -ggdb -c tcpping.c
-	cc tcpping.o -o tcpping
+	cc -lm tcpping.o -o tcpping
 
 
 clean:

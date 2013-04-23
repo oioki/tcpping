@@ -15,6 +15,8 @@
 #include <math.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <limits.h>
 
 
 // I use it mostly for remote servers
@@ -29,15 +31,27 @@ long int timeval_subtract(struct timeval *t2, struct timeval *t1)
 
 // sequence number
 static int seq = 0;
+static int cnt_successful = 0;
+
+// aggregate stats
+unsigned long int diffMin = ULONG_MAX;
+unsigned long int diffAvg;
+unsigned long int diffMax = 0;
+unsigned long int diffSum = 0;
+unsigned long int diffSum2 = 0;
+unsigned long int diffMdev;
 
 // address
 struct sockaddr_in addrServer;
 
+int running = 1;
 
 
 // one ping
 int ping(char * ip, int port)
 {
+    seq++;
+
     // creating new socket for each new ping
     int sfdInet = socket(PF_INET, SOCK_STREAM, 0);
     if ( sfdInet == -1 )
@@ -89,7 +103,6 @@ int ping(char * ip, int port)
         // sleeping 1 sec until the next ping
         sleep(1);
 
-        seq++;
         return 1;
     }
 
@@ -97,7 +110,14 @@ int ping(char * ip, int port)
     gettimeofday(&tvEnd, NULL);
     long int diff = timeval_subtract(&tvEnd, &tvBegin);
     int secs = diff / 1000000;
-    printf("  OK   Connected to %s:%d, seq=%d, time=%6.3lf ms\n", ip, port, seq, diff/1000.);
+    printf("  OK   Connected to %s:%d, seq=%d, time=%0.3lf ms\n", ip, port, seq, diff/1000.);
+    cnt_successful++;
+
+    // changing aggregate stats
+    if ( diff < diffMin ) diffMin = diff;
+    if ( diff > diffMax ) diffMax = diff;
+    diffSum  += diff;
+    diffSum2 += diff*diff;
 
     // OK, closing the connection
     err = close(sfdInet);
@@ -108,11 +128,13 @@ int ping(char * ip, int port)
     ts.tv_nsec = 1000 * ( 1000000*(1+secs) - diff );
     nanosleep(&ts, &ts);
 
-    seq++;
     return 0;
 }
 
-
+void intHandler()
+{
+    running = 0;
+}
 
 int main(int argc, char * argv[])
 {
@@ -121,15 +143,16 @@ int main(int argc, char * argv[])
         printf("Usage: %s hostname [port]\n", argv[0]);
         return 1;
     }
+    char * host = argv[1];
     int port = (argc==2) ? DEFAULT_PORT : atoi(argv[2]);
 
     // resolving the hostname
     struct hostent * he;
     extern h_errno;
-    he = gethostbyname(argv[1]);
+    he = gethostbyname(host);
     if ( he == NULL )
     {
-        fprintf(stderr, "tcpping: unknown host %s (error %d)\n", argv[1], h_errno);
+        fprintf(stderr, "tcpping: unknown host %s (error %d)\n", host, h_errno);
         return 1;
     }
 
@@ -144,8 +167,32 @@ int main(int argc, char * argv[])
     char ip[16];
     strcpy(ip, inet_ntoa(*addr_list[0]));
 
+    // Ctrl+C handler
+    signal(SIGINT, intHandler);
+
+    // note the starting time
+    struct timeval tvBegin, tvEnd, tvDiff;
+    gettimeofday(&tvBegin, NULL);
+
+
     // main loop
-    while (1) ping(ip, port);
+    while (running) ping(ip, port);
+
+
+    // note the ending time and calculate the duration of TCP ping
+    gettimeofday(&tvEnd, NULL);
+    long int diff = timeval_subtract(&tvEnd, &tvBegin);
+
+    // summary
+    printf ("\n--- %s tcpping statistics ---\n", host);
+    printf ("%d packets transmitted, %d received, %d%% packet loss, time %ldms\n", seq, cnt_successful, 100-100*cnt_successful/seq, diff/1000);
+    if ( cnt_successful > 0 )
+    {
+        diffAvg  = diffSum/cnt_successful;
+        diffMdev = sqrt( diffSum2/cnt_successful - diffAvg*diffAvg );
+        printf("here\n");
+        printf ("rtt min/avg/max/mdev = %0.3lf/%0.3lf/%0.3lf/%0.3lf ms\n", diffMin/1000.,diffAvg/1000.,diffMax/1000.,diffMdev/1000.);
+    }
 
     return 0;
 }
