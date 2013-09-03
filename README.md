@@ -5,6 +5,7 @@ Sequentially creates tcp connections to the specified host and measures the late
 
 
 Usage:
+<pre>
 $ tcpping oioki.ru
   OK   Connected to 78.47.82.174:22, seq=1, time=44.004 ms
   OK   Connected to 78.47.82.174:22, seq=2, time=44.307 ms
@@ -14,3 +15,4 @@ $ tcpping oioki.ru
 --- oioki.ru tcpping statistics ---
 4 packets transmitted, 4 received, 0% packet loss, time 3240ms
 rtt min/avg/max/mdev = 44.004/44.138/44.307/0.186 ms
+</pre>
